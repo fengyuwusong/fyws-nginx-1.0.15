@@ -1,3 +1,134 @@
+# nginx学习
 
-Documentation is available at http://nginx.org
+[toc]
 
+## linux内核调优
+
+- sysctl.conf
+```conf
+fs.file-max=999999                          # 进程可同时打开的最大句柄数 限制了nginx的最大并发数
+net.ipv4.tcp_tw_reuse=1                     # 是否允许将TIME-WAIT状态的socket重新用于新的TCP连接
+net.ipv4.tcp_keepalive_time=600             # keepalive启用时 TCP发送keepalive消息的频度 设置更小则可快速清理无用连接
+net.ipv4.tcp_fin_timeout=30                 # 服务器主动关闭时 socket保持在FIN-WAIT-2状态的最大时间
+net.ipv4.tcp_max_tw_buckets=5000            # 操作系统云溪的time-wait套接字数量最大值 超出该数字则会被清除并打印警告信息。该参数默认为180000 过多time-wait套接字会使web服务器变慢
+net.ipv4.ip_local_port_range=1024   61000   # 定义了udp和tcp连接中本地端口取值范围
+net.ipv4.tcp_rmem=4096 32768 262142         # 定义TCP接受缓存最小值、默认值、最大值
+net.ipv4.tcp_wmem=4096 32768 262142         # 定义TCP发送缓存最小值、默认值、最大值
+net.core.netdev_max_backlog= 8096           # 当网卡接受数据包速度大于内核处理的速度时，会有一个队列保存该数据包，此参数为队列的最大值
+net.core.rmem_default=262144                # 内核套接字接收缓存区的默认大小
+net.core.wmem_default=262144                # 内核套接字发送缓存区的默认大小
+net.core.rmem_max=2097152                   # 内核套接字接收缓存区的最大大小
+net.core.wmem_max=2097152                   # 内核套接字发送缓存区的最大大小
+net.ipv4.tcp_synccookies=1                  # 性能无关 用于解决TCP中SYN攻击
+net.ipv4.tcp_max_syn_backlog=1024           # tcp三次握手接受syn请求队列的最大长度 默认1024 将其设置更大一点可以使nginx繁忙来不及accept新连接的情况时 linux不至于丢失客户端发起的连接请求
+```
+
+## 编译安装nginx
+
+```shell
+./configure
+make
+make install
+```
+
+## configure详解
+
+相关参数见源码注释及help
+
+## nginx命令控制
+
+- 指定配置文件
+```shell
+nginx -c /tmp/nginx.conf
+```
+
+- 指定安装目录
+
+```shell
+nginx -p /usr/local/nginx
+```
+
+- 指定全局配置项
+    - 约束的配置项不能和配置文件内配置冲突 否则无法启动
+    - 当后续使用其他命令时 需要把-g参数也带上
+```shell
+nginx -g "pid /var/nginx/test.pid"
+```
+
+- 检查配置信息是否有错误
+
+```shell
+nginx -t
+```
+
+- 在测试配置阶段不输出信息 不把error级别以下的信息输出屏幕
+
+```shell
+nginx -t -q
+```
+
+- 显示版本信息
+
+```shell
+nginx -v
+```
+
+- 显示编译阶段的参数
+
+```shell
+nginx -V
+```
+
+- 快速停止服务
+
+```shell
+nginx -s stop
+
+# 效果同下
+kill -s SIGTERM pid
+kill -s SIGINT  pid
+```
+
+- 优雅停止服务
+
+```shell
+nginx -s quit
+
+# 效果同下
+kill -s SIGQUIT pid
+
+# 优雅停止某个worker进程
+kill -s SIGWINCH pid
+```
+
+- 运行中的nginx重读配置
+
+```shell
+nginx -s reload
+# 效果同下
+kill -s SIGHUP pid
+```
+
+- 日志文件回滚
+主要用于将当前日志文件转移或重命名, 然后执行明了重新打开新的日志文件，避免单个日志文件过大
+```shell
+nginx -s reopen
+# 效果同下
+kill -s SIGUSR1 pid
+```
+
+- 平滑升级nginx
+    - 通知运行中的旧版本nginx准备升级 `kill -s SIGUSR2 pid`, 此时运行中的nginx会将pid重命名
+    - 启动新版本nginx，此时发现新旧nginx同时运行
+    - 优雅方式退出旧版本nginx即可
+
+- 命令行参数
+
+```shell
+nginx -h
+```
+
+
+## 相关文档
+
+- 官方文档：http://nginx.org

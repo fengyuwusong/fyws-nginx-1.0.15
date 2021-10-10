@@ -10,20 +10,24 @@
 # 分析nginx源码节后 构造后续Makefile文件
 . auto/sources
 
-# 
+# 编译过程中所有目标文件生产的路径创建
 test -d $NGX_OBJS || mkdir $NGX_OBJS
 
+# 准备建立 NGX_AUTO_HEADERS_H NGX_AUTOCONF_ERR 必要编译文件
 echo > $NGX_AUTO_HEADERS_H
 echo > $NGX_AUTOCONF_ERR
 
+# 向ngx_auto_config.h 写入命令行带的参数
 echo "#define NGX_CONFIGURE \"$NGX_CONFIGURE\"" > $NGX_AUTO_CONFIG_H
 
 
+# 判断debug标志 写入是否带debug宏
 if [ $NGX_DEBUG = YES ]; then
     have=NGX_DEBUG . auto/have
 fi
 
 
+#  检查操作系统是否支持后续编译
 if test -z "$NGX_PLATFORM"; then
     echo "checking for OS"
 
@@ -46,21 +50,32 @@ else
     NGX_SYSTEM=$NGX_PLATFORM
 fi
 
+# 检查并设置编译器 如GCC是否安装 版本是否支持等
 . auto/cc/conf
 
+# 检查非windws系统定义的头文件是否存在
 if [ "$NGX_PLATFORM" != win32 ]; then
     . auto/headers
 fi
 
+# 检查操作系统相关方法是否支持
 . auto/os/conf
 
 if [ "$NGX_PLATFORM" != win32 ]; then
     . auto/unix
 fi
 
+# ===================
+# 核心脚本 用于构造运行期的modules脚本
+# 将生成ngx_modules.c文件并编译到nginx中 唯一的做的是轻微定义ngx_modules数组，指明了nginx运行期间有哪些模块会参与到请求的处理中
+# 数组顺序决定其加载顺序 可使用 --add-module=自定义模块 加载自定义模块到数组
+#====================
 . auto/modules
+
+# 检查链接期间依赖是否存在
 . auto/lib/conf
 
+# 处理nginx安装后的路径
 case ".$NGX_PREFIX" in
     .)
         NGX_PREFIX=${NGX_PREFIX:-/usr/local/nginx}
@@ -76,10 +91,12 @@ case ".$NGX_PREFIX" in
     ;;
 esac
 
+# 处理nginx安装后的conf路径
 if [ ".$NGX_CONF_PREFIX" != "." ]; then
     have=NGX_CONF_PREFIX value="\"$NGX_CONF_PREFIX/\"" . auto/define
 fi
 
+# 处理nginx安装后 其他文件的路径
 have=NGX_SBIN_PATH value="\"$NGX_SBIN_PATH\"" . auto/define
 have=NGX_CONF_PATH value="\"$NGX_CONF_PATH\"" . auto/define
 have=NGX_PID_PATH value="\"$NGX_PID_PATH\"" . auto/define
@@ -98,6 +115,7 @@ have=NGX_HTTP_UWSGI_TEMP_PATH value="\"$NGX_HTTP_UWSGI_TEMP_PATH\""
 have=NGX_HTTP_SCGI_TEMP_PATH value="\"$NGX_HTTP_SCGI_TEMP_PATH\""
 . auto/define
 
+# 创建编译时 Makefile文件
 . auto/make
 . auto/lib/make
 . auto/install
@@ -105,7 +123,31 @@ have=NGX_HTTP_SCGI_TEMP_PATH value="\"$NGX_HTTP_SCGI_TEMP_PATH\""
 # STUB
 . auto/stubs
 
+# 指定 NGX_USER 和 NGX_GROUP宏 如无参数指定则为nobody
 have=NGX_USER value="\"$NGX_USER\"" . auto/define
 have=NGX_GROUP value="\"$NGX_GROUP\"" . auto/define
 
+# 显示configure执行结果
 . auto/summary
+
+# config执行成功后会生成objs目录
+# objs
+# ├── autoconf.err          # 保存configure执行过程中产生的结果
+# ├── Makefile              # 编译Nginx工程以及加入install参数后安装Nginx
+# ├── ngx_auto_config.h     # 保存相关配置宏
+# ├── ngx_auto_headers.h    # 保存相关配置宏
+# ├── ngx_modules.c         # 关键文件 定义ngx_modules数组 决定加载模块及优先级
+# └── src                   # 存放编译时产生的目标文件
+#     ├── core
+#     ├── event
+#     │   └── modules
+#     ├── http
+#     │   └── modules
+#     │       └── perl
+#     ├── mail
+#     ├── misc
+#     └── os
+#         ├── unix
+#         └── win32
+
+# 12 directories, 5 files
